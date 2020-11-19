@@ -3,7 +3,6 @@ import numpy as np
 import datetime as dt
 import pandas as pd
 import requests
-import json
 
 
 import sqlalchemy
