@@ -42,7 +42,7 @@ def home():
         """List all available api routes."""
         f"Available Routes:<br/>"
         f"/api/v1.0/areas<br>"
-        f"/api/v1.0/predict/(date)<br>"
+        f"/api/v1.0/predict/(date YYYY-MM-DD hh:mm:ss)<br>"
     )
     
 @app.route("/api/v1.0/areas")
@@ -51,7 +51,7 @@ def areas():
     df = pd.read_csv('city geos.csv')
     return jsonify(df['City'].tolist())
 
-@app.route("/api/v1.0/predict/<date>")
+@app.route("/api/v1.0/predict/<AtDate>")
 def predict(AtDate):
 
     myDate = dt.datetime.strptime(AtDate, '%Y-%m-%d %H:%M:%S')
