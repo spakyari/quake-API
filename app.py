@@ -4,6 +4,7 @@ import datetime as dt
 import pandas as pd
 import requests
 import datetime as dt
+import math
 
 
 import sqlalchemy
@@ -18,10 +19,17 @@ from flask_cors import CORS
 # Flask Setup
 #################################################
 app = Flask(__name__)
+cors = CORS(app)
 
 #################################################
 # Functions Setup
 #################################################
+
+citygeos = pd.read_csv("city geos.csv")
+
+POR_df = pd.read_csv('POR.csv')
+POR_df.set_index('ClosestCity',inplace = True)
+
 
 def ReadUSGS(BaseDate = dt.datetime.today()):
     
@@ -32,6 +40,53 @@ def ReadUSGS(BaseDate = dt.datetime.today()):
     
     data = requests.get(url)
     return data.json()
+
+def AddPOR(Main_df):
+    periods = np.array([])
+    for index, row in Main_df.iterrows():
+        catagory = f"Mag{int(row['category']*10)}"
+        city = row['ClosestCity']
+        
+        periods = np.append(periods, POR_df.loc[city,catagory])
+
+        Main_df['POR'] = periods
+
+        return Main_df
+
+def df_to_json(df):
+    
+    features = []
+    
+    for index, row in df.iterrows():
+        
+        # Read record from dataframe 
+        lon = row['longitude']
+        lat = row['latitude']
+        depth = row['depth']
+        mag = row['mag']
+        city = row['ClosestCity']
+        
+        # build record into dictionary 
+        record = {
+            
+            'geometry':{
+                'coordinates': [lon, lat, depth]
+            },
+            
+            "properties": {
+                'mag': mag,
+                'title':city
+            }
+              
+        }
+                   
+        features.append(record)
+
+    return jsonify({'features':features})
+
+
+
+    
 
 
 # create route that renders index.html template
