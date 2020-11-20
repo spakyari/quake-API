@@ -177,6 +177,7 @@ def home():
         """List all available api routes."""
         f"Available Routes:<br/>"
         f"/api/v1.0/areas<br>"
+        f"/api/v1.0/past30days/(date YYYY-MM-DD hh:mm:ss)<br>"
         f"/api/v1.0/predict/(date YYYY-MM-DD hh:mm:ss)<br>"
         f"/api/v1.0/target/(date YYYY-MM-DD hh:mm:ss)<br>"
     )
@@ -186,6 +187,15 @@ def areas():
 
     df = pd.read_csv('city geos.csv')
     return jsonify(df['City'].tolist())
+
+@app.route("/api/v1.0/past30days/<AtDate>")
+def past30days(AtDate):
+    
+    myDate = dt.datetime.strptime(AtDate, '%Y-%m-%d %H:%M:%S')
+
+    json = ReadUSGS(myDate)
+
+    return jsonify(json)
 
 @app.route("/api/v1.0/predict/<AtDate>")
 def predict(AtDate):
@@ -210,13 +220,24 @@ def predict(AtDate):
 def target(AtDate):
 
     myDate = dt.datetime.strptime(AtDate, '%Y-%m-%d %H:%M:%S')
+    StartDate = (myDate + dt.timedelta(days=30))
 
-    df = DefineProblem(myDate)
+    response = ReadUSGS(StartDate)
 
-    X = df.iloc[:,3:]
+    print(response)
 
+    my_df = Json_to_df(response)
 
-    return jsonify(output)
+    my_df = my_df.groupby(my_df['ClosestCity']).max()
+
+    cities_df = citygeos.copy()
+    cities_df.rename(columns= {'City':'ClosestCity'}, inplace =True)
+
+    output_df = pd.merge(cities_df, my_df, on = 'ClosestCity')
+
+    json = df_to_json(output_df)
+
+    return json
 
 
 
