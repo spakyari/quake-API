@@ -12,6 +12,8 @@ import sqlalchemy
 from sqlalchemy.ext.automap import automap_base
 from sqlalchemy.orm import Session
 from sqlalchemy import create_engine, func, distinct, and_
+from sklearn.linear_model import LogisticRegression
+
 
 from flask import Flask, jsonify
 from flask_cors import CORS
