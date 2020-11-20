@@ -25,10 +25,10 @@ cors = CORS(app)
 # Functions Setup
 #################################################
 
-citygeos = pd.read_csv("city geos.csv")
+# citygeos = pd.read_csv("city geos.csv")
 
-POR_df = pd.read_csv('POR.csv')
-POR_df.set_index('ClosestCity',inplace = True)
+# POR_df = pd.read_csv('POR.csv')
+# POR_df.set_index('ClosestCity',inplace = True)
 
 
 def ReadUSGS(BaseDate = dt.datetime.today()):
@@ -116,7 +116,7 @@ def predict(AtDate):
 @app.route("/api/v1.0/test/<num>")
 def test(num):
 
-    return jsonify(math.sin(num))
+    return jsonify(math.sin(int(num)))
 
 if __name__ == "__main__":
     app.run()
