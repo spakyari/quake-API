@@ -5,6 +5,7 @@ import pandas as pd
 import requests
 import datetime as dt
 import math
+import joblib
 
 
 import sqlalchemy
@@ -25,10 +26,10 @@ cors = CORS(app)
 # Functions Setup
 #################################################
 
-# citygeos = pd.read_csv("city geos.csv")
+citygeos = pd.read_csv("city geos.csv")
 
-# POR_df = pd.read_csv('POR.csv')
-# POR_df.set_index('ClosestCity',inplace = True)
+POR_df = pd.read_csv('POR.csv')
+POR_df.set_index('ClosestCity',inplace = True)
 
 
 def ReadUSGS(BaseDate = dt.datetime.today()):
@@ -60,9 +61,8 @@ def df_to_json(df):
     for index, row in df.iterrows():
         
         # Read record from dataframe 
-        lon = row['longitude']
-        lat = row['latitude']
-        depth = row['depth']
+        lon = row['Longitude']
+        lat = row['Latitude']
         mag = row['mag']
         city = row['ClosestCity']
         
@@ -70,7 +70,7 @@ def df_to_json(df):
         record = {
             
             'geometry':{
-                'coordinates': [lon, lat, depth]
+                'coordinates': [lon, lat, 0]
             },
             
             "properties": {
@@ -84,7 +84,87 @@ def df_to_json(df):
 
     return jsonify({'features':features})
 
+def Json_to_df(response):
+    
+    rows = []
+    for record in response['features']:
 
+        mag = record['properties']['mag']
+        lon = record['geometry']['coordinates'][0]
+        lat = record['geometry']['coordinates'][1]
+
+        if mag - int(mag) > .5:
+            n = 0.5 
+        else:
+            n = 0
+
+
+        row = {
+
+            'longitude': lon,
+            'latitude': lat,
+            'depth': record['geometry']['coordinates'][2],
+            'mag': mag,
+            'category': int(mag) + n,
+            'ClosestCity': FindCity(lat=lat,lon=lon)
+
+        }
+
+        rows.append(row)
+        
+    df=pd.DataFrame(rows)
+    
+    return df
+
+def FindCity(lat, lon):
+    distCompare = 100000000
+    for i in range(0,len(citygeos)):
+        latCity = citygeos.iloc[i,1]
+        lonCity = citygeos.iloc[i,2]
+        x = latCity - lat
+        y = (lonCity - lon) * math.cos(lat * math.pi/180)
+        distance = 110.25 * (x**2 +y**2)**0.5
+        if distance < distCompare:
+            Geo = citygeos.iloc[i,0]
+            distCompare = distance
+    return Geo
+
+def DefineProblem(AtDate):
+    
+    #myDate = dt.datetime.strptime(AtDate, '%Y-%m-%d %H:%M:%S')
+
+    response = ReadUSGS(AtDate)
+
+    df = Json_to_df(response)
+
+    # df = AddPOR(df)
+    
+    output_df = generate_features(df)
+
+    return output_df
+
+def generate_features(df):
+
+    features = POR_df.columns
+    cities =df['ClosestCity'].unique()
+
+    my_df = pd.DataFrame(columns = features)
+    my_df.insert(0,'ClosestCity',cities)
+    my_df = my_df.set_index('ClosestCity')
+    my_df.fillna(0, inplace =True)
+
+    agg = df.groupby('ClosestCity')['category'].value_counts()
+    for item in agg.index:
+
+        #print(item[0], item[1] , agg[item[0]][item[1]])
+        my_df['Mag' + str(int(item[1]*10))][item[0]] = agg[item[0]][item[1]]
+
+    cities_df = citygeos.copy()
+    cities_df.rename(columns= {'City':'ClosestCity'}, inplace =True)
+
+    output_df = pd.merge(cities_df, my_df, on = 'ClosestCity')
+    
+    return output_df
 
     
 
@@ -98,6 +178,7 @@ def home():
         f"Available Routes:<br/>"
         f"/api/v1.0/areas<br>"
         f"/api/v1.0/predict/(date YYYY-MM-DD hh:mm:ss)<br>"
+        f"/api/v1.0/target/(date YYYY-MM-DD hh:mm:ss)<br>"
     )
     
 @app.route("/api/v1.0/areas")
@@ -111,12 +192,33 @@ def predict(AtDate):
 
     myDate = dt.datetime.strptime(AtDate, '%Y-%m-%d %H:%M:%S')
 
-    return jsonify(ReadUSGS(myDate))
+    df = DefineProblem(myDate)
 
-@app.route("/api/v1.0/test/<num>")
-def test(num):
+    X = df.iloc[:,3:]
 
-    return jsonify(math.sin(int(num)))
+    model = joblib.load('final_model.sav')
+    predictions = model.predict(X)
+    df.insert(3, 'mag', predictions)
+    output_df = df.iloc[:,:4]
+    json = df_to_json(output_df)
+ 
+
+    return json
+
+
+@app.route("/api/v1.0/target/<AtDate>")
+def target(AtDate):
+
+    myDate = dt.datetime.strptime(AtDate, '%Y-%m-%d %H:%M:%S')
+
+    df = DefineProblem(myDate)
+
+    X = df.iloc[:,3:]
+
+
+    return jsonify(output)
+
+
 
 if __name__ == "__main__":
     app.run()
