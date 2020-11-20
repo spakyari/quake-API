@@ -113,7 +113,10 @@ def predict(AtDate):
 
     return jsonify(ReadUSGS(myDate))
 
+@app.route("/api/v1.0/test/<num>")
+def test(num):
 
+    return jsonify(math.sin(num))
 
 if __name__ == "__main__":
     app.run()
