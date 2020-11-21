@@ -208,7 +208,7 @@ def predict(AtDate):
 
     X = df.iloc[:,3:]
 
-    model = joblib.load('final_model.sav')
+    model = joblib.load('final_model.h5')
     predictions = model.predict(X)
     df.insert(3, 'mag', predictions)
     output_df = df.iloc[:,:4]
